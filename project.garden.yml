@@ -1,0 +1,44 @@
+apiVersion: garden.io/v1
+kind: Project
+name: garden-coder
+
+defaultEnvironment: ephemeral
+dotIgnoreFile: .gitignore
+
+environments:
+  - name: ephemeral
+    defaultNamespace: coder
+    variables:
+      k8sProvider: ephemeral-kubernetes
+
+  - name: remote
+    defaultNamespace: coder
+    variables:
+      k8sProvider: kubernetes
+
+providers:
+  - name: ephemeral-kubernetes
+    environments: [ephemeral]
+    namespace: ${environment.namespace}
+  # Update these values to deploy Coder to your own remote Kubernetes environment.
+  # Learn more here: https://docs.garden.io/kubernetes-plugins/remote-k8s
+  # - name: kubernetes
+  #   namespace: ${environment.namespace}
+  #   defaultHostname: <your-hostname>
+  #   context: <your-cluster-context>
+  #   ...rest config
+
+variables:
+  postgresUsername: coder
+  postgresDatabase: coder
+  # For production deployments you can use Garden secrets. Learn more at: https://garden.io/plans
+  postgresPassword: coder
+  protocol: https
+
+  # Replace underscores to ensure valid usernames
+  username: ${kebabCase(local.username)}
+
+  # The following values are used for creating the initial Coder user
+  coderEmail: user@example.com
+  # For production deployments you can use Garden secrets. Learn more at: https://garden.io/plans
+  coderPassword: VeryStrongCoderPassword1234!

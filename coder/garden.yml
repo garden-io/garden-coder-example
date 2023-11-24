@@ -1,0 +1,115 @@
+kind: Deploy
+name: postgres
+type: helm
+description: Deploy a Postgres database for Coder
+
+spec:
+  chart:
+    name: postgresql
+    repo: https://charts.bitnami.com/bitnami
+    version: 12.6.6
+  values:
+    fullnameOverride: postgres
+    auth:
+      username: ${var.postgresUsername}
+      database: ${var.postgresDatabase}
+      password: ${var.postgresPassword}
+    primary:
+      readinessProbe:
+        successThreshold: 3 # Raised from a default of 1 to avoid startup flakiness
+      persistence:
+        enabled: false
+
+---
+kind: Deploy
+name: coder-server
+type: helm
+description: Deplopy the Coder server
+dependencies: [deploy.postgres]
+
+variables:
+  hostname: coder.${providers[var.k8sProvider].outputs.default-hostname}
+
+spec:
+  chart:
+    name: coder
+    repo: https://helm.coder.com/v2
+    version: "2.4.0"
+  values:
+    coder:
+      env:
+        - name: CODER_PG_CONNECTION_URL
+          value: postgres://${var.postgresUsername}:${var.postgresPassword}@postgres:5432/coder?sslmode=disable
+        - name: CODER_ACCESS_URL
+          value: ${var.protocol}://${var.hostname}
+
+      ingress:
+        enable: true
+        className: nginx
+        host: ${var.hostname}
+
+---
+kind: Build
+name: coder
+type: container
+description: Build a Docker image with Coder installed that contains the example template
+
+---
+kind: Run
+name: init-coder
+type: container
+description: Helper action for initializing Coder
+dependencies: [build.coder, deploy.coder-server]
+
+spec:
+  image: ${actions.build.coder.outputs.deploymentImageId}
+  command:
+    - /bin/sh
+    - -c
+    - |
+      coder login http://coder \
+      --first-user-email=${var.coderEmail} \
+      --first-user-password=${var.coderPassword} \
+      --first-user-username=${var.username} \
+      --first-user-trial \
+      --use-token-as-session \
+
+      coder template push \
+      --name=garden-workspace \
+      --create \
+      --yes \
+      --url=http://coder \
+      --variable \
+      namespace=${environment.namespace} \
+      --variable \
+      garden_auth_token=$CODER_GARDEN_TOKEN \
+
+      coder create ${var.username}/dev \
+      --template=kubernetes \
+      --yes \
+      --parameter cpu=2 \
+      --parameter memory=2 \
+      --parameter home_disk_size=10 \
+  env:
+    CODER_GARDEN_TOKEN: ${local.env.CODER_GARDEN_TOKEN}
+
+---
+kind: Deploy
+name: coder
+type: exec
+description: Helper action that ensures Coder is initialized after deploying
+
+dependencies: [run.init-coder]
+variables:
+  hostname: coder.${providers[var.k8sProvider].outputs.default-hostname}
+
+spec:
+  deployCommand:
+    - echo
+    - |
+      ✨ Successfully deployed Coder to ${var.protocol}://${var.hostname} ✨
+
+      Visit your Coder instance at:
+
+      ${var.protocol}://${var.hostname}
+  cleanupCommand: [echo, "Cleaning up..."]
