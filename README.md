@@ -26,7 +26,7 @@ This repository contains an example project that demonstrates how to use Garden 
 
 Together, they allow you to leverage the power of the cloud to **develop a system of any complexity fully remotely** with instant feedback that **feels like local**. See below for a quick demo video 👇
 
-[Garden Coder demo video](https://github.com/garden-io/garden-coder-example/assets/5373776/20fc95fe-d358-4bbb-b3f0-c30ab55c5ef1)
+[Garden Coder demo video](https://github.com/garden-io/garden-coder-example/assets/5373776/570ff3bd-e3c4-4fb7-a94c-475131200bc9)
 
 ## Usage
 
